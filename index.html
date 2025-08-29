@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dijital Günlük</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background-color: #333;
+            overflow-x: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .book-container {
+            flex: 1;
+            width: 100%;
+            max-width: 500px;
+            margin: 0 auto;
+            position: relative;
+            background-color: #fdfaf2;
+            overflow: hidden;
+        }
+
+        .page {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            background-color: #fdfaf2;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .page.active {
+            opacity: 1;
+            visibility: visible;
+            z-index: 10;
+        }
+
+        .page-content {
+            padding: 20px;
+            padding-top: 50px;
+            line-height: 1.6;
+            font-size: 16px;
+            word-wrap: break-word;
+            height: 100%;
+        }
+
+        .page-date {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 12px;
+            color: #999;
+            font-style: italic;
+        }
+
+        .cover {
+            background: linear-gradient(135deg, #8B4513 0%, #A0522D 100%);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .cover h1 { 
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px #000;
+            margin: 0;
+        }
+        
+        .cover p { 
+            font-style: italic;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+
+        .navigation {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 1000;
+            padding: 0 10px;
+        }
+
+        .nav-btn {
+            padding: 12px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 25px;
+            border: 2px solid #8B4513;
+            background-color: #fff;
+            color: #8B4513;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+            touch-action: manipulation;
+            min-width: 80px;
+        }
+
+        .nav-btn:active {
+            background-color: #8B4513;
+            color: white;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .audio-player {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f0ebe5;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .play-btn {
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            border-radius: 20px;
+            border: 2px solid #8B4513;
+            background-color: #8B4513;
+            color: white;
+            transition: background-color 0.2s ease;
+            touch-action: manipulation;
+        }
+        
+        .play-btn:active {
+            background-color: #A0522D;
+        }
+
+        #password-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(51, 51, 51, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        
+        #password-box {
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            width: 90%;
+            max-width: 300px;
+        }
+        
+        #password-input {
+            padding: 12px 16px;
+            font-size: 18px;
+            width: 100%;
+            max-width: 150px;
+            text-align: center;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            letter-spacing: 3px;
+            margin: 15px 0;
+        }
+        
+        #password-box button {
+            width: 100%;
+            max-width: 150px;
+            padding: 12px;
+            border: none;
+            background-color: #8B4513;
+            color: white;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        
+        #error-message {
+            margin-top: 15px;
+            color: red;
+            min-height: 20px;
+            font-size: 14px;
+        }
+        
+        #password-overlay.hidden {
+            display: none;
+        }
+
+        .page-content p {
+            margin-bottom: 15px;
+            text-align: justify;
+        }
+
+        .page-content strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #8B4513;
+        }
+
+        /* Scrollbar gizleme */
+        .page::-webkit-scrollbar {
+            width: 3px;
+        }
+        
+        .page::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        .page::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 3px;
+        }
+
+        /* Mobil için özel optimizasyonlar */
+        @media (max-width: 480px) {
+            .page-content {
+                padding: 15px;
+                padding-top: 40px;
+                font-size: 14px;
+                line-height: 1.5;
+            }
+            
+            .cover h1 {
+                font-size: 2em;
+            }
+            
+            .nav-btn {
+                padding: 10px 15px;
+                font-size: 12px;
+                min-width: 70px;
+            }
+            
+            .navigation {
+                bottom: 5px;
+            }
+        }
+
+        /* Yatay ekran optimizasyonu */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .navigation {
+                bottom: 5px;
+            }
+            
+            .nav-btn {
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="password-overlay">
+        <div id="password-box">
+            <h2>Lütfen Doğum Tarihimi Gir</h2>
+            <form id="password-form">
+                <input type="password" id="password-input" placeholder="GGAA" maxlength="4" autocomplete="off">
+                <button type="submit">Giriş</button>
+            </form>
+            <p id="error-message"></p>
+        </div>
+    </div>
+
+   <div class="page cover active">
+            <div class="page-content">
+                <div>
+                    <h1>GÜNLÜK(OPSİYONEL)</h1>
+                    <p>Bektaşın saçmaları</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="page">
+            <div class="page-content">
+                <div class="page-date">30.08.2025</div>
+                <p><strong>30.08.2025</strong></p>
+                <p>Öncelikle selamün aleyküm gülümmm yisindir inşallah uzun zamandır konuşmuyoz.</p>
+                <p>Sana bir doğum günü borcum var İyi ki doğdun benim hafızımmm konuşmiyoz belki ama bu doğum gününü kutlamicam anlamına gelmez. Gönül ister ki bunu sana direk yazmak yada aramak öyle kutlamak yada daha güzeli Kayseri'de kutlamak djdjsjsjjwks neyse abartmim Kızgınsın zaten bana şansımı zorlamiyim 🤗</p>
+                <p>Eeeee şey bir hediye olarak sayılmaz ama yılın başından beri bı günlük gibi bir şey tutuyorum her gün olmasada ara ara gelip yazıyordum bir şeyler onu sana vermek istedim al bak gör yaptıklarını diye değil sana soylemediklerimi bilmene isterim arkandan konuşmuşum.biraz ama ossssun sjsjjsjsjs.</p>
+                <p>Bu günlüğü sana kendim vermek istiyordum ama nasip değilmiş böyle olması gerekiyormuş. İşten çıkınca 1 ay full yatcam demiştin bitti o 1 ay artık yks ye çalışmaya başla yeter bukadar yatış. Duam seninle merak etme. çok şey var yazacak konuşacak sığmaz burası djsdsjkdsjkdjkds neyse....</p>
+                <p>Hakkını helal et olur mu duandan çıkarma beni nalor tek isteğim senden. Görüşürüz inşallah SSS</p>
+            </div>
+        </div>
+
+        <div class="page">
+    <div class="page-content">
+        <div class="page-date">29.01.2025</div>
+        <p><strong>29.01.2025</strong></p>
+        <p>Selamün aleyküm bu mesajı son kez konuştuğumuz gece yazıyorum.</p>
+        <p>İçim içim ağlıyorum göz yaşsiz kalbimde büyük bi boşluk acımı Allah'tan başkası bilemez. Ama senin için değer, hafızlığın için değer en büyük engel bendim bunu farkındaydın ama sırf ben uzulmim diye bunu hep sakladın benden ne zaman konusu açılsa konu başka yerlere giderdi. Şuan sende çok üzülüyorsun farkındayım Kurban olurum ben sana , kıyamam sana birtanemm. Olması gereken buydu zor bı karar verdin helal olsun sana aslanım be jssjjsjsj. Şimdi inşallah bu mesajı en kısa sürede sana gösteririm. Tabiki hafızlığın bittiği gün ve konuşmayı başladığımız gün bunu sana göstercem o günki mutluluğumu şimdiden heyecan veriyor snsjskskskoakakak. O gün okadar şey konuşulacak ki belki unutturum bunu ama inşallah görürsün. Seni çok seviyorum iyiki varsın iyi ki geldin hoşgeldin. Bende hoşgeldim evime.</p>
+        <p>(1 hafta sonra konuşmayi başlarız eminim sjsjsjsjsjsjsjsjsk)</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">05.02.2025</div>
+        <p><strong>05.02.2025</strong></p>
+        <p>Eveeeettttt nerdeyse 1 hafta oldu hep aklımdasın ne yapsam aklima sen geliyon. Hemen bj dudum güncellemesi yapim sana keske direk sana yazabilsem ama neyse ossunn. Okullar başladı cok yoğunum cooooook okul , ders, spor, ev felan derken acayip yoğuum. Yeni tel aldim artik daha iyi kasmiyor ama alışamadm ya zor sjsjsjsjsj eelhamdülillah elhamdülilla. Kar var bu hafta bide abbooo sjjsjsisoaoaoala cok iyi. Okadar inşallah iyisindir. Sesini konuşmanı cok özledim şimdiden daha cooooooooook var cooooook diririririririirir. Ya rab SABR</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">10.02.2025</div>
+        <p><strong>10.02.2025</strong></p>
+        <p>1 haftadan fazla oldu gidişin. Cok yazasım var ama yok olmaz. Dun gece ruyamda yazdığını gördüm uyandim gerçek sandim tele baktım belki harbiden yazmıssındir diye zortt djdjjdjdjds🥲</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">12.02.2025</div>
+        <p><strong>12.02.2025</strong></p>
+        <p>Sidelyammm vallahi çok özledim kendimi tutamadım whatsaptan yazdim ama engelli kaldırmamışsın agagaggagagaga. Telegram dan yazdim ama internetin kapali gözüküyor yada sildin herelde. Rabiyadan rica ettim yazsin sana oda tersledi beni onunlada konuşmayı kestim. İcim cok darılıyor senden haber alamıyom ıyımısın acaba 😣</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">15.02.2025</div>
+        <p><strong>15.02.2025</strong></p>
+        <p>Nihayet bugun yazdin bana cok mutlu oldummm ya aşırı ilk basta soguk yaptım ama aslinda heyecandan ne yazsam diye dusunmekten yaşamıyordum cok guzeldi konusma hasret giderdik. Ama sonuc yine hüsran çünkü ramazanda tamamen yoksun bayrama kadar ramazan icin bazi seyler planlamistim ama neyse hayırlısı ossunn seneye inşallah. 45 gun yoksun  bu sefer cok ama cok fazla bakalim ne olacak ilerdeki gunlerdr yazarim gene burda allaha emanet artık  bide bi soğuktun ayrılırken bu tik tripliydin insallah kırılmamışsındır.</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">20.02.2025</div>
+        <p><strong>20.02.2025</strong></p>
+        <p>Eveett bugün 1 aydan fazla oldu yokluğun bundan 1 ay öncesinde konuşuyorduk ama işte kader abi snsjsjskskks neyse ramazan basliyor bu ramazan için bir kaç şey planlamistim senle yapacağım şeyler diye ki en önemlileri hatim indirmekti senle ama olsun seneye inşallah kim bilir belki beraber okutmayi nasıl eder rabbim 😉.</p>
+        <p>Bir daha ne zaman yazarım bilmiyom belki bayramda yazarım bir şeyler gene inşallah iyisindir 😘</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">28.03.2025</div>
+        <p><strong>28.03.2025</strong></p>
+        <p>Merhabalar ramazanin 28incisi 2 haftadır sende  bir şeyler var soğuk yapıyon benden uzaklaşıyon tek tek kelimelerle cevaplıyordun bu hafta insan gibi konuştuk meşgul olduğunu Felan söyledin ama başka bir şey var gibi geliyor neyse bir süre ara verdik senle bakalım ne olacak hayır olsun inşallah 😔</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">01.04.2025</div>
+        <p><strong>01.04.2025</strong></p>
+        <p>Selamün aleyküm bu gece seninle son kez konuştuk ayrılmayı karar verdik hafızlığın için. Belki bir süre belki de hepten ama seni unutmicam son mesajım " elveda " idi ondan sonea boğazım bı düğümlendi ağladım sessiz sessiz ama asıl ağlama içimdeydi asıl feryad feğan. Eğer azcik uzulmediysen hakkım helal olmasın sana çok kırıldım bu gece. İnşallah geri dönersin sene hayallerim vardı onları yaşarım. ELVEDA SİDELYAM</p>
+        <p>Gece uyuyamadım nerdeyse sabahda 4 ye kalktım Teheccüd kıldım dua ettim ki çok ani oldu rabbim herelde istedi bunları da 5te yazıyım sabah ezanını bekliyom 😔</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">05.04.2025</div>
+        <p><strong>05.04.2025</strong></p>
+        <p>Ne ara 4 gün geçti hiç anlamadım vallah. Çok zordu bu bı kaç gün WhatsAppa mesajlarına bile girmeyye korkuyorum mesajları bir daha okumayı bile korkuyorum. Ayrıca keşfettindeki reelsler ne öyle iğrenç şeyler hiç yakiştıramadim sana inşallah doğru değildir onlar Allah'ım inşallah. Bu gece ubeydle konuştuk aslında kimseye soylemicaktim ben sen ve Allah arasinda olacaktı ama işte durmuyor ki uşak neyse diyor ki çok bağlanma geri gelmez Felan dedi. Onu tetikleyen ya bı arkadaşı yada başka bir erkek var dedi seni sonuna kadar savundum o öyle kızlardan değil dedim. Ben çok kız tanıdım hepsi böyle dedi bende yok Sidelyam farklı benim dedim savundum yani seni sonra sen kör olmuşsun dedi. Niye herkes her kızı aynı zannediyor ki annemler de aynı şey demişti buda ama sen farklısın biliyom beni hayal kırıklığına ugratmazsin o yüzden seviyorum seni şapşik.</p>
+        <p>Artık buraya sık sık yazarım rabbim bunları sana okuttursun inşallah 😔</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">13.04.2025</div>
+        <p><strong>13.04.2025</strong></p>
+        <p>Selamün aleyküm</p>
+        <p>2 gün önce güzel güzel konuştuk uzatarak bı hayırlı sabahlar mesajı almıştım hatta çok güzeldi sonra her şey bı anda ters takla oldu yaz demiştim sana ama yazmadın uyuya kalmışsın güya akşam 7 de 7 deee neyse tm dedim olabilir dedim ondan önce niye yazmadın dedim " ben niye hesap veriyorum şuan" dedin kalbimi çok kırdın orda bende "doğru ben kimim ki zaten" dedim sonra da hiç bir şey yazmadım işte 2 gün oldu sende yazmıyon bende yazmiyom hadi kırıldım üzüldüm de niye yazmiyon be telefon başında bekliyom 2 gündür sırf yazarsan hemen bakim diye ama yok yazmıyon keyfin yerinde herelde.</p>
+        <p>Bende yazmicam inada inat...</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">15.04.2025</div>
+        <p><strong>15.04.2025</strong></p>
+        <p>5 gün oldu yazmıyorum yazmıyorsun kırgınlığım geçti de yazmaman çok üzdü beni oysaki gönlümü alırdın eskiden olsa. çok üzdü beni çok vallah kızgın değilim artık küs de değilim yazsan hiç bir şey olmamış gibi davranırım da yazmıyorsun ki. Acaba artık önem vermiyormu sevmiyormu diye düşünmemek elde değil çünkü ne olursa olsun her ne kadar uzaklaşmak istesek de yinede kırıldığımi anlayıp gönlümü alırdın illaki yazardın acaba ne geçiyor şuan aklında. Niye yazmıyorsun mesela keşke şuan yazıp sorsam ama yok bir kerede sen yaz.</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">21.04.2025</div>
+        <p><strong>21.04.2025</strong></p>
+        <p>İreme yazdım bugün kursa gitti mi diye yok dedi sonra söyleme ona sana yazdığımı dedim. Ama maşallah göz göz değil ki şahin gözü mübarek hemen gördün.djksiskss.neyse çok şükür yazdın konuştuk az bir şey kızgınsın bana sana görüldü attığım için de senin yaptığını söylemedim ben üstlendim suçu jsjsjsjs . Özür diledim ama işte sendeki inat kedi inadı. Baban ve annen boşanacak haberini bugün verdin üzüldüm. Sende üzüldün ama belli etmeye çalışmayon sonuçta büyüksün sen evin sen öyle davransan küçükler napsin Güçlü durmayı çalışiyon anliyom bugün üzülmedim desende üzüldün ama içini atiyon sonuçta normal bir şey değil hayatınız değişecek tamamen belki senin hafızlık zedelenecek. Hayırlısı olsun sizin için duam hep senle ,sizle. Adliyeden sonra kursa gidecektin en son yaz dediydim sana ama yazmican olsun ne zaman yazsan burdayım kurban olurum ben sana. Deli gibi kendimle konuşuyorum</p>
+        <p>Hadi bbbb</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">25.04.2025</div>
+        <p><strong>25.04.2025</strong></p>
+        <p>Selamün aleyküm</p>
+        <p>Kurstan geldin gene zorla silah zoruyla konuştum senle senin amaç hep kavga etmek her şeyi olayı cümleyi kavgaya getiriyordun. Kavga etmek kolaydı da sırf seni kaybetmemek için uğraşıyorum başkası olsa vallah şimdiye kadar kapının önüne koymuştum da işte insan sevince. Neyse bu sefer sende bir seyyler anlattın ortamı biraz yumuşattim. Yemek bahanesiyle gittin 2 saat ortadan yok oldun olsun bir şey demedim de gece yazdim (((((->>>Sidelya hanım biliyom ki daha da  yazmazsiniz sjsjjs ama genee söyleyeyim ne zaman istersen yazabilirsin burdayım tamam mı birtanem. Hayırlı geceler birde gitmeden önce bana bı haber ver gittim diye aklım kalmasın sende YOKSA YAZARİM( uyarı) hadi Allah'a emanet<-----)))mesaj bu hızlıca okudun eyvallah tamam Allah'a emanett dedin çekip gittin çok koydu bu ve sonrasinda sende gülüm diyip gül emojisi koydum onu bile bakmadın. Kırıldım ya çok fena çok yazasim var şuan gidip kavga etmek tartışmak bitirmek ama işte sen olunca olmuyor sonrasını düşünmem lazım seni kaybedemem. Bunuda içime attım bu yazdıklarımı bir gün sana gistermeyi nasıl olur inşaallah neler çektiğimi gör gör.HALİMDEN GELMİYON ANLAMİYON BENİ HİÇ</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">28.04.2025</div>
+        <p><strong>28.04.2025</strong></p>
+        <p>Eveet selamün aleyküm biraz mutluyum jsjsjsjsjs çünkü Sidelyam konuşmaya başladı. eskisi gibi konuşuyoz. sudan dağdan taştan elhamdülillah ama bir değişiksin neyse bakalım</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">01.05.2025</div>
+        <p><strong>01.05.2025</strong></p>
+        <p>Selamün aleyküm ENGEL YEDİM  snsjsjsksksksk</p>
+        <p>Vallah engelledin her yerden. Ok yazdın bana bende ok ne ya Felan yazdım trip atım derken engel yedim güldüğümu bakma çok üzdün beni şimdiye kadar bir çok kez tartıştık kavga ettim ama hiç engellememistin hani demiştim ya değişiksin diye hakliymisim. 1 aydır bana çektirdiğin şeyler bana karşı olan tavrının sadece küçük bir kısmını sana da denedim ve sonuç... Beni tahammül etmiyon artık gibi geliyor gerçekten çok üzüldüm. engel değil bana sana her türlü ulaşabilirim ama yok beklicam senin yazmanı. Çok da doluyum sana iyi bı kavga etcem senle.</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">04.05.2025</div>
+        <p><strong>04.05.2025</strong></p>
+        <p>Selamlarrrr efenim</p>
+        <p>Dün bu gece yazdın bana Ubeyd hâlimi anlatmış sanâ öyle hasta Felan demiş sonra yazdın çok üzülmüştun farkettim benden uzaklaştığın için de özür diledin engel attığın içinde ben kurban olurum sana yerimmm yaaa mübarek insan bende kıyamadim barıştık aslında çok doluydum çok şey diyecektim ama işte sen bı adımı atınca bende 10 adım atasım geliyor. Veeee artık eskisi gibiyiz konuşuyozz soğuk yapıyon aksine bu gece hayırlı geceler hayatım muaahh veda mesajı aldimm inanılmaz mutluyum. Elhamdülillahhhhh çok şükür uzun bı aradan sonra shjsjsjsjs çok iyi geldi. İnşallah sınanmam artık bu şekilde almasın seni benden rabbimmm. Neyse kaçiyom ben uykum var bakalım ne zaman yazcam bir daha 😁</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">06.05.2025</div>
+        <p><strong>06.05.2025</strong></p>
+        <p>Jsjsjsksksksksk gece saat 2 ancak kapattım yav deli diyon ki 29 da evlencez cık cık cık. Zar zor 25e indirdim neyse uykum var yatcammm çok seviyorum seni aşkımmmmmmmmmmm😁</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">08.05.2025</div>
+        <p><strong>08.05.2025</strong></p>
+        <p>çok şükür hala iyiyiz âmâ eski o sidelya enerjisini alamiyom hak veririm çünkü o kadar şey yaşadın yaşıyon annen Babam ayrıldı babandan kaçiyonuz bı nevi şehir devistircez diyon numara Felan değişecek diyon zor üzülüyorum senin için ayrıca elimdenn bir şey gelmemesinden genede sana yük olmim bari diye Nazını çekiyom tribini çekiyom bende sana yuklensem ne anlamı kaldı bu işin sevdiğimmmmm yaa. Neyse yarın menzile gidcen Adıyaman'a meşgulsun baya naajajsjsjs kıyafet Felan topluyon hayırlısı olsun inşallah 🌹</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">15.05.2025</div>
+        <p><strong>15.05.2025</strong></p>
+        <p>Her şey yolundaydı bugün gene sana bir şeyler oldu gene bitirelim uzaklaşalim demeye başladın çok bir şeyde yazmak istemiyom. Galiba bu sefer son günler 😞</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">16.05.2025</div>
+        <p><strong>16.05.2025</strong></p>
+        <p>Ne yazsam görüldü atmaya başladın bu araverme işini konuşcaktim sadece amacım seni gitmemeye ikna etmek değildi iki insan gibi konuşcaktik ama sen görüldü atmayı seçtin neyse bende ara verelim bari dedim Felan ona da görüldü attin bence sen benden sıkıldın ama soylemiyon. Bundan bı kaç ay önce bir çok kez sıkılma mevzusu açılmıştı hepsinde sen ben asla sıkılmam demiştin de galiba yapamadın neyse hayırlısı olsun bakalım rabbim eğer konuşmamizi izin verirse konuşuruz inşallah. benim biricik yârimmmm seni kaybetmemek için elimden geleni yapıyorum</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">22.05.2025</div>
+        <p><strong>22.05.2025</strong></p>
+        <p>Durum hala aynı bir şey yazmadın. 1 hafta olacak beklicam yazana kadar yaptığın ayıptı ama hiç bir şey demeden beni terk etmen gitmen görüldü attin günlerdir.</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">26.05.2025</div>
+        <p><strong>26.05.2025</strong></p>
+        <p>Bugün yazdın sanki hiç bir sey olmamış gibi günlerdir görüldu atmamişsin gibi hesap soruyon bende görüldü attım sonra soru işareti bıraktın ona da görüldü attım ama içim yandı parçalandı bende dayanamayıp yazdım (((((Vallah içim parçalandı görüldü atiyom diye Sen atarken hiç mi için acımadı sızlamadı)))) Diye. Bakmadın hala bekliyom. hiç sırası değildi sınav haftası bide kafam allak bullak olacak gene hele kavga edersek bu sene kesin kaldım sınıfta</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">27.05.2025</div>
+        <p><strong>27.05.2025</strong></p>
+        <p>Selamün aleyküm galiba bitti her şey,</p>
+        <p>Dün yazdın aşk insanı degilim zarar veriyorum ikimizide bitirelim diye bende karşı çıktım yok olmaz ben gitmem bırakmam seni yazcam inadına sonra görüldü attin işte bugünde hayırlı sabahlar yazdım bir şeyler yazdım öğlen bı baktım engel yemişim WhatsApptan , Instagram hala duruyor ama yazmicam kalsın. Naldo bilmiyom bı anda her şey yok oldu gitti bı ara beni çok seven değer veren biri şuan engelliyor beni çok üzdü beni kalbin da kırıldı ama ümidim hiç gitmiyor hep bı ümit var içimde niye bilmiyom neyse bu belki son yazımdır inşallah değildir. Dönmene beklicam seni çok seviyorum vallahi ki seni kaybetmek istemiyorum. bunları belki bı gün okursun elveda ŞUANLİK.....😞</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">06.06.2025</div>
+        <p><strong>06.06.2025</strong></p>
+        <p>Merhaba bağımlı</p>
+        <p>Hala durum aynı kurban bayramın ilk günüydü çok bekledim yazmanı umutluydum yazacağını ama nafile beklemisim ama olsun attığım hikayeyi gördün bu bana yeter Instagramdan cikarmadin beni tek umudum o demiştim ya harbiden son tutunduğum yer orası ordan da çıkarsan biterim.</p>
+        <p>Neyse belki yazarsın ya inşallah yazarsan yazarım Burada merak etme</p>
+        <p>Ha bide her gün kotrol ediyom wp acaba açmışmisin diye her gün 3,4 kez bı harf gönderiyorum ama her seferinde hep 1 tik.</p>
+        <p>Eski mesajları okuyom</p>
+        <p>Çok özledim seni 😞</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">14.06.2025</div>
+        <p><strong>14.06.2025</strong></p>
+        <p>Beklenen gün geldi bugün bir şey bahane oldu yazdın kendinden beni soğutman için bütün tuşlara bastın işe yaramadı sonra dedin ki (gel arkadaş olalım ). Ben kabul ettim çünkü senle konuşmak hoşuma gidiyor seviyorum seni çünkü ama arkadaş gibi olabilir miyiz meçhul elimden geleni yapcam yeterki sen sıkılma, ama ol yanımda. Neyse işte artık ona kanka Diyom , arkadaşım Diyom jdjsjsjsjsjsjs oda bana başkan reis Felan diyor çok saçma şuan arkadaşız ona hesap da soramam görüldü atsa niye attın da diyemem geç cevap verse niye geç cevap verdin diyemem şuan pişmanım. İnan ondan çok beni yıprattı mi ilişki artık pek hayırlı gelmiyor bilmiyom eskisi kadar enerji alamiyom. Okadar işkence ettirdi ki bana artık soğudum galiba tam emin değilim. Şuan böyle hem varım hem yokum arada kalmışim gibi sesimi de cikartamiyom bir şey de diyemiyom yoksa çekip gider onunda istediği bu zaten bir şey olsa da bitsin gitsin sanki sadece kendisi var bu ilişkide benim duygularım yok ne düşüğündugum bir önemi yok 1 aydır engel atti bir soramadım niye engelledin diye sorsam ne yazar ya trip atar gider yada ne bilim düzgün cevap vermez hele bı gidiyor 2 saaat sonra yazıyor hangi arkadaşı hesap soruyor ki ben sorcam . Neyse biraz fazla yazdım ilk defa o var ama ben mutlu değilim rabbim yardımcınız olsun</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">19.06.2025</div>
+        <p><strong>19.06.2025</strong></p>
+        <p>Merhabalar</p>
+        <p>Günlerdir değişik bir haldeyiz senle bu iyi gibiyiz bı kötü bı gün seviyon bı gün dövuyon. Neye bugub aramak istedin ben de tamamm hadi konuşalım dedim az bir şey konuştuk sonra spordayim çıkınca konuşalım dedim ama olmadı nasip olmadı sende trip attın tabi jsjsjsjsjs biraz da kavga ettim senle bu aralar mi tavırlarnla ilgili tabiki suçunun farkındasın ama sıkışınca hemen trip attın sonra muah dedin engel attım gene hdjisissoossolsoslaka daha bu sabah kaldırdin akşam gene engel. Allah'ım ya delirtcan beni ya</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">20.06.2025</div>
+        <p><strong>20.06.2025</strong></p>
+        <p>Agagagagagagagagagaga jjsjsjsjsjs Ay</p>
+        <p>Çok mutluyum yaaa bugün yarım saât telefonla konuştuk yarım saaaaaatttttt çok güzeldi yaa sonra işin çıktı konuşma yarıda kaldı ama çok güzeldi elhamdülillah başta biraz çekinerek konuştum ama sonra alıştım yaaa gelse sevme şimdi gelse Vazgeç şimdi</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">05.07.2025</div>
+        <p><strong>05.07.2025</strong></p>
+        <p>Nerdeyse bir haftadır uzak durmak istedim senden yazmadım aramadım. Çok yoruldum, sıkıldım her şeyden çalışmaktan düşünmekten çaresizlikten gelecekten geçmişten hayattan ve senden. Sidelyami istiyorum beni seven önem veren merak eden koruyan kolllayan ama biliyom ki ârtik yok yada bekliyor bir yerlerde. Pes eden erkek olmak istemiyorum sana da öyle gösteriyorum lakin içim ölüyor bugün bunları konuşmak isterdim sana başka kimsem yok ki anlatacak bı sen vardın sende ne olduğunu bile sormadın merak etmedin oysaki ben olsam sorardım merak ederdim anlatırırdım yada eski Sidelyam olsa hemen anlardı sorardı anlatirana kadar peşimi bırakmazdı yok bir şey desen şimdi alacağım cevap (peki) ama Sidelyam öyle demezdi . Bitirsem mi acaba ama bi kıvılcım var hala sende hissedebiliyom tamamen yok degilsin varsın ama yok gibisin.... çok ozledim seni Sidelyam nalor geri dön 😞</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">09.07.2025</div>
+        <p><strong>09.07.2025</strong></p>
+        <p>Merhaba yine çok özledim çok boşluktayim bugün fenalaştim migren yüzünden haberin yok tabi çünkü konuşmiyoz 3 gündür aslında uzak durmak istiyorum senden biraz tam da istediğin gibi ama çok zor hadi beni sevmediğini artık bilsem yada söylesen okadar acitmaz da sevdiğini de biliyom hala o yüzden acısı çok daha fazla Allah'a emanet bir daha ne zaman yazarım bilmem ama biraz burayı da ara vernek istiyorum herşeye ara verdiğim gibi... sevdiğimmmm❤‍🩹</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">22.07.2025</div>
+        <p><strong>22.07.2025</strong></p>
+        <p>Selamün aleyküm</p>
+        <p>Geçen hafta yazmadım iki gün niye yazmiyon diye yazdın bende sinirlendim çok da umrundayim dedim sonra bir şey demedim ara vermek istedigimi söyledim sonra işte 1 haftadır seni kendimden uzak tutuyom bu sefer bunu yapan benim bir cok şey oldu ani anlatmak istiyorum ama aynı zamanda böyle devam etmek istiyorum böyle sensiz sadece aklımda ol, duamda ol çünkü varlığın zarar veriyor ikimize de çok haklıydın evet bu iş böyle yürümez ben boşa çabaladım galiba boşa kürek çektim çekiyorum neyse bakalım sen yazacak misin yoksa gene ben mi yazcam</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">03.08.2025</div>
+        <p><strong>03.08.2025</strong></p>
+        <p>Merhabaaa</p>
+        <p>Durumlar aynı konuşuyor luz arasıra çok yorgun oluyon konuşamiyoz çoğu zaman ana yinede az da olsa konuşuyoz bazende ariyoz işte güzel . Yarın doğum günüm bskslum kutlican mi hele bı unut hele bı kutlama fight atcam senle görürsün</p>
+        <p>Ben yazdım gene bu arada umrunda değildim anlaşıldı</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">04.08.2025</div>
+        <p><strong>04.08.2025</strong></p>
+        <p>Unuttun doğum günümü belliydi zaten üzüldüm ama elimden bir şey gelmez artık ne yapım gelip ben mi soylim doğum günümdu diye sonra yalandan bı kutlama mesajı alırım Felan yok almim saol amaç senin aklında bulunmasiydi onuda anlamış olduk ki yokum aklında ben niye çabalıyom ozaman boşa kürek cekiyom sanki sadece ben varmışım gibi konuscam artık senle benimde bı sabrım var 4 ,  5  ay oldu bu şekilde giidiyoz</p>
+        <p>Yapamam daha fazla affet 😞</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">08.08.2025</div>
+        <p><strong>08.08.2025</strong></p>
+        <p>Dün gece yazamadım şimdi yaziyom</p>
+        <p>En son kendiim dedim doğum günümü unuttun diye ama sen unutmadım dedi unutmamışsin yaaaaaaa Jdjdjsksksksk</p>
+        <p>Sonra doğru zamanı bekliyordum Felan dedim rahatladım vallah. Bideeee telefonunuza şifresi bile 0804 muşssss agagagagagagagga ay Allah'ım yaaa yerimmmm seni yerimmmmm benim bitanemmmm aşkımmmmmmmmm Tabiki bunları diyemedim sana demedim çünkü arkadaş diye bı çizgi çektin aşmamam gerek ama çok güzeldiiiii ya dün gece çocuk gibi sevindim hala gidip dün geceki mesajları okuyom tekrar tekrar neyse ben uyucam.</p>
+        <p>bugün de yazdım yazdım yoksun hayırdir inşallah....</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">11.08.2025</div>
+        <p><strong>11.08.2025</strong></p>
+        <p>Selamün aleyküm</p>
+        <p>Çekip gittin gene ne oldu bilmiyom aslında küçük bı tartışma oldu ben biraz sertt cevap verdim kesin kaybolmuş bende kediler seni sevmiyor anla da kaçan kaçana dedim sende komik mi dedim bende değil gerçek dedim sende tamam diyip gittin ama 10 dk sonra yazdım özür diledim tüm gün yazdım ama cevap vermedim Instagramdan baktın sonra WP ye bak dedim saol kalsın bakmican dedin niye dedim gerek yok konuşmaya dedin bende ne diyin peki dedim sende takipten çıktın bende WP deki profil fotoğrafımi değiştirdim ve bu kadar acaba bu sefer harbiden son mu orasını bilmem ama bu sefer çok canım acımadı boğazım düğüm düğüm olsa da gene iyiyim nedense hüzünlüyüm ama içim içime öyle işte bakalım bir gelişme olursa yazarım da olacak gibi durmuyor uzun bi süre yok olacam galiba sen yoksan napim günlük yazmayı instagra girmeyi o açtığım hesap da artık boş bı hesap görmek bile mide bulandırıyor sensiz çünkü işlevsiz</p>
+        <p>Neyse Allah'a emanetsin gülüm...</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">16.08.2025</div>
+        <p><strong>16.08.2025</strong></p>
+        <p>1 hafta olacak nerdeyse ses seda yok senden bende bir şey demedim yazmadım öyle</p>
+        <p>WP daki profil fotoğrafını siyah yaptın nalaka anlamadım neyse yazım dedim kalsın burda haftaya yazmam bir dahakine artık 1 ay doldu zaman yazarım ondan sonra 2 ay ondan sonra 3 ay ondan sonra 6 ay sonra 1 yıl ondan sonrasını biliyoz zaten ...</p>
+    </div>
+</div>
+
+<div class="page">
+    <div class="page-content">
+        <div class="page-date">21.08.2025</div>
+        <p><strong>21.08.2025</strong></p>
+        <p>Dün gece seni rüyamda gördüm beraber yürüyorduk okadar doğum günün yaklaşıyor yazsam mi diye düşünüyorum yada duruma bir şey mi eklesem yada sessiz kalmaya devam mi bilmiyom çıkmazdayim bakalım duruma göre</p>
+    </div>
+</div>
+
+        <div class="page">
+            <div class="page-content">
+                <p><strong>SON</strong></p>
+                <p>Okuduğun için teşekkür ederim...</p>
+                <p>Bu günlüğün bir de melodisi var. Dinlemek istersen:</p>
+                
+                <div class="audio-player">
+                    <h3>🎵 çok güzel bir şarkı bak bu seversin (KUL)</h3>
+                    <button class="play-btn" id="audioPlayBtn">Çal</button>
+                    <audio id="diaryAudio" loop>
+                        <source src="sarki.mp3" type="audio/mpeg">
+                        Tarayıcınız ses çaları desteklemiyor.
+                    </audio>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation">
+        <button class="nav-btn" id="prevBtn">← Önceki</button>
+        <button class="nav-btn" id="nextBtn">Sonraki →</button>
+    </div>
+
+    <script>
+        // Şifre kontrolü
+        const correctPassword = "0408";
+        const passwordOverlay = document.getElementById('password-overlay');
+        const passwordForm = document.getElementById('password-form');
+        const passwordInput = document.getElementById('password-input');
+        const errorMessage = document.getElementById('error-message');
+
+        passwordForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            if (passwordInput.value === correctPassword) {
+                passwordOverlay.classList.add('hidden');
+            } else {
+                errorMessage.textContent = "Hatalı tarih. Lütfen tekrar deneyin.";
+                passwordInput.value = "";
+                setTimeout(() => {
+                    errorMessage.textContent = "";
+                }, 3000);
+            }
+        });
+
+        // Basitleştirilmiş sayfa sistemi
+        const pages = document.querySelectorAll('.page');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        let currentPageIndex = 0;
+
+        function showPage(index) {
+            pages.forEach((page, i) => {
+                page.classList.toggle('active', i === index);
+            });
+            
+            prevBtn.disabled = index === 0;
+            nextBtn.disabled = index === pages.length - 1;
+        }
+
+        nextBtn.addEventListener('click', () => {
+            if (currentPageIndex < pages.length - 1) {
+                currentPageIndex++;
+                showPage(currentPageIndex);
+            }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (currentPageIndex > 0) {
+                currentPageIndex--;
+                showPage(currentPageIndex);
+            }
+        });
+
+        // Basit touch gesture
+        let startX = null;
+        
+        document.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+        }, { passive: true });
+        
+        document.addEventListener('touchend', (e) => {
+            if (startX === null) return;
+            
+            const endX = e.changedTouches[0].clientX;
+            const diff = startX - endX;
+            
+            if (Math.abs(diff) > 50) {
+                if (diff > 0 && currentPageIndex < pages.length - 1) {
+                    currentPageIndex++;
+                    showPage(currentPageIndex);
+                } else if (diff < 0 && currentPageIndex > 0) {
+                    currentPageIndex--;
+                    showPage(currentPageIndex);
+                }
+            }
+            
+            startX = null;
+        }, { passive: true });
+
+        // Ses çalar
+        const playButton = document.getElementById('audioPlayBtn');
+        const audio = document.getElementById('diaryAudio');
+
+        if (playButton && audio) {
+            playButton.addEventListener('click', () => {
+                if (audio.paused) {
+                    audio.play().catch(() => {
+                        alert('Ses dosyası bulunamadı veya yüklenemedi.');
+                    });
+                    playButton.textContent = 'Durdur';
+                } else {
+                    audio.pause();
+                    playButton.textContent = 'Çal';
+                }
+            });
+        }
+
+        // Başlangıç durumu
+        showPage(0);
+    </script>
+</body>
+</html>
